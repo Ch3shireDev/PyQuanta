@@ -2,15 +2,14 @@
 import numpy as np
 from numpy.fft import fft, ifft
 import matplotlib.pyplot as plt
-from random import random
 
 Nx, Ny, Nz = 2048, 256, 8
 Lx, Ly, Lz = 10., 10., 1.
-dt = 0.001
+dt = 0.0001
 
 dx = Lx/Nx
 
-N = 20
+N = 500
 
 print Nx
 
@@ -22,7 +21,7 @@ tab += 1
 tab = tab.astype(np.complex)
 tab2 = tab.copy()
 
-Kx = np.arange(Nx) - np.append(np.zeros(Nx/2),np.ones(Nx/2)*Nx)
+Kx = np.arange(Nx) - np.append(np.zeros(Nx/2), np.ones(Nx/2)*Nx)
 Kx *= 2*np.pi/Lx
 
 K2 = np.exp(-1j*Kx**2*dt)
@@ -32,27 +31,30 @@ Tab2 = []
 
 E = np.ones(Nx)
 
-for i in range(6):
+for i in range(N):
     tab = ifft(K2*fft(tab))
-    r = np.abs(tab2)
-    #source of the problem
-    E = tab2/np.abs(tab2)
-    de = np.angle(E/np.roll(E, 1))/dx
-    d2e = np.angle(E/np.roll(E, 1)**2*np.roll(E, 2))/dx/dx
+    E = tab/np.abs(tab)
+    dTheta = np.imag(np.roll(E, 1)/E - 1)/dx
+    d2Theta = (dTheta - np.roll(dTheta, 1))/dx
 
+    r = np.abs(tab2)
     dr = (r - np.roll(r, 1))/dx
-    d2r = (np.roll(r, -1) - 2*r + np.roll(r, 1))/dx/dx
-    dPsi = 1j*d2r * E - tab2*d2e - 2*dr*de * E - 1j*tab2*de**2
-    dPsi *= dt
+    d2r = (dr - np.roll(dr, 1))/dx
+
+    # tab2 = np.exp(-1j*dt*((dTheta)**2 - 1j*d2Theta))*tab2
+    #i don't know why but without 1j thing it's more accurate
+    # dPsi = -(d2r + 2j*dTheta*dr)*E
+    #again, when I remove j it coverges better
+    tab2 = np.exp(-1j*dt*((dTheta)**2 - d2Theta))*tab2
+    dPsi = d2r*E*1j*dt
     tab2 += dPsi
+
+
+
     Tab.append(np.abs(tab))
     Tab2.append(tab2)
     print i, np.linalg.norm(tab - tab2)
 
-
-plt.plot(fft(de))
-plt.plot(fft(d2e))
-plt.show()
 
 exit(0)
 
